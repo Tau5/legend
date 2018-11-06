@@ -2,7 +2,7 @@
 The legend engine is a 2D text based game engine written in Rust
 
 ## Running a game for the Legend Engine
-The Legend game info is stored in a `game` direcotry next to the binarie, if your have a valid [game manifest](https://github.com/Tau5/legend/wiki/game-manifest) just run the binarie (The binarie must be in the same directory as the `game` directory) and the game will run
+The Legend game info is stored in a `game` directory next to the binarie, if your have a valid [game manifest](https://github.com/Tau5/legend/wiki/game-manifest) just run the binarie (The binarie must be in the same directory as the `game` directory) and the game will run
 
 
 ## Creating games for the Legend Engine
@@ -31,9 +31,9 @@ The SDK will ask some questions to configure the proyect and will create a `game
 
 ### Creating a map
 
-Now that you created your proyect, let's create a map.
+Now that you have created your proyect, let's create a map.
 
-If you has followed the tutorial you should specified a intial map when you created the proyect, in the command bellow use the inital map filenme as the filename for the map
+If you have followed the tutorial you should specified a intial map when you created the proyect, in the command bellow use the inital map filenme as the filename for the map
 
 First we are gonna move to the new game directory, next run the following command to create a new map (In filename, specifie the filename)
 ```
