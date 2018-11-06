@@ -49,10 +49,10 @@ fn start() {
     let mut file = File::open(Path::new(&get_path(format!("{}{}", "/game/", config.initial_map).to_string()))).unwrap();
     let mut content = String::new();
     file.read_to_string(&mut content).expect("Could not find game world file");
-    let world_file: World = serde_json::from_str(&content).unwrap();
-    let world = world_file.world.clone();
-    let char_map = world_file.char_map.clone();
-    let collision_map = world_file.collision_map.clone();
+    let mut world_file: World = serde_json::from_str(&content).unwrap();
+    let mut world = world_file.world.clone();
+    let mut char_map = world_file.char_map.clone();
+    let mut collision_map = world_file.collision_map.clone();
         //Start curses mode
         let window = initscr();
         window.refresh();
@@ -65,7 +65,7 @@ fn start() {
     //Start game loop with the initial_map
     game_loop(world_file.clone(), &window, world, char_map, collision_map);
 }
-fn game_loop(world_file: World, window: &pancurses::Window, world:Vec<u32>, char_map: Vec<char>, collision_map:Vec<u8>) {
+fn game_loop(mut world_file: World, window: &pancurses::Window, mut world:Vec<u32>, mut char_map: Vec<char>, mut collision_map:Vec<u8>) {
     let mut x = world_file.spawn[0];
     let mut y = world_file.spawn[1];
     render(&window, &world, get_line_count(&world), x, y, &char_map, '*'); //Render the map
@@ -99,9 +99,10 @@ fn game_loop(world_file: World, window: &pancurses::Window, world:Vec<u32>, char
             None => {continue}
         }
         window.clear();
-        render(&window, &world, get_line_count(&world), x, y, &char_map, '*');
-        let code = check_triggers(&window,&world_file, x, y); //Read for triggers
+        let code = check_triggers(&window,&world_file,&mut world, &mut collision_map, x, y); //Read for triggers
         if code==1 { break ; }
+        render(&window, &world, get_line_count(&world), x, y, &char_map, '*');
+        
     }
     
 }
@@ -109,13 +110,11 @@ pub fn main() {
     start();
     endwin();
 }
-fn run_event(name: String, window: &pancurses::Window, world:&World, x:usize, y:usize) -> u8 { //Executes a specific event
+fn run_event(name: String, window: &pancurses::Window, world:&World, world_map: &mut Vec<u32>, collision_map: &mut Vec<u8>, x:usize, y:usize) -> u8 { //Executes a specific event
     let mut return_code = 0;
     /*
         Code list:
-            0: Nothing done
             1: End current game_loop (Succefull)
-            2: Events executed succefully
     */
     for i in world.events.iter() {
         if(i.0==name){
@@ -125,16 +124,25 @@ fn run_event(name: String, window: &pancurses::Window, world:&World, x:usize, y:
                     return_code = 1; //Set return code to kill the current game_loop
                     game_loop(map.clone(), window, map.world, map.char_map, map.collision_map); //Start the game_loop in the new map
                 }
+                if(c.0=="setw"){
+                    let index = get_loc(world.clone().world, c.2, c.3);
+                    //std::fs::write("./log", format!("{:?}", c));
+                    world_map[index] = c.4;
+                }
+                if(c.0=="setc"){
+                    let index = get_loc(world.clone().world, c.2, c.3);
+                    collision_map[index] = c.4 as u8;
+                }
             }
         }
     }
     return_code    
 }
-fn check_triggers(window: &pancurses::Window, world:&World, x:usize, y:usize) -> u8 { 
+fn check_triggers(window: &pancurses::Window, world:&World, world_map: &mut Vec<u32>, collision_map: &mut Vec<u8>, x:usize, y:usize) -> u8 { 
     let mut return_code = 0;
     for i in world.triggers.iter() { //Iterate trough triggers to check if a events must be ran
         if i.0==x&&i.1==y {
-            return_code = run_event(i.clone().2, window, &world, x, y);
+            return_code = run_event(i.clone().2, window, &world, world_map, collision_map, x, y);
         }
     }
     return_code
@@ -164,7 +172,7 @@ fn get_collision_line(world: &Vec<u8>, line_number: u32)-> Vec<u8>{ //Get a Vect
     }
     line
 }
-fn get_line(world: &Vec<u32>, line_number: u32)-> Vec<u32>{ //Get a Vector of a line in the world map
+fn get_line(world: Vec<u32>, line_number: u32)-> Vec<u32>{ //Get a Vector of a line in the world map
     let mut line_index: u32 = 0;
     let mut line: Vec<u32> = Vec::new();
     for i in world.iter() {
@@ -174,10 +182,48 @@ fn get_line(world: &Vec<u32>, line_number: u32)-> Vec<u32>{ //Get a Vector of a 
     }
     line
 }
+fn get_loc(world: Vec<u32>, x: u32, y:u32)-> usize{ //Get the index
+    let mut row: u32 = 0;
+    let mut col: u32 = 0;
+    let mut index: usize = 0;
+    for (i, n) in world.iter().enumerate() {
+        if col==x&&row==y {
+            index = i;
+            break;
+        }
+        if *n==0 {
+            row+=1;
+            col=0;
+        } else {
+            col+=1;
+        }
+        
+        
+    }
+    index
+}
+fn get_loc_coll(world: Vec<u8>, x: u32, y:u32)-> usize{ //Get the index
+    let mut row: u32 = 0;
+    let mut col: u32 = 0;
+    let mut index: usize = 0;
+    for (i, n) in world.iter().enumerate() {
+        if col==x&&row==y {
+            index = i;
+            break;
+        }
+        if *n==2 {
+            row+=1;
+            col=0;
+        } else {
+            col+=1;
+        }
+    }
+    index
+}
  fn render(window: &pancurses::Window,world: &Vec<u32>, line_number: u32, x:usize, y:usize, char_map: &Vec<char>, character_char: char) { //Render the map
      window.clear();
      for i in 0..line_number {
-         let line = get_line(&world, i);
+         let line = get_line(world.to_vec(), i);
         for n in 0..line.len() {
             if i==y as u32&&n==x as usize{
                 window.addch(character_char);
