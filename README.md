@@ -2,7 +2,7 @@
 The legend engine is a 2D text based game engine written in Rust
 
 ## Running a game for the Legend Engine
-The Legend game info is stored in a `game` direcotry next to the binarie, if your have a valid [game manifest](https://github.com/Tau5/legend/wiki/game-manifest) just run the binarie (The binarie must be in the same directory as the `game` directory) and the game will run
+The Legend game info is stored in a `game` directory next to the binarie, if your have a valid [game manifest](https://github.com/Tau5/legend/wiki/game-manifest) just run the binarie (The binarie must be in the same directory as the `game` directory) and the game will run
 
 
 ## Creating games for the Legend Engine
