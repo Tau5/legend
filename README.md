@@ -31,9 +31,9 @@ The SDK will ask some questions to configure the proyect and will create a `game
 
 ### Creating a map
 
-Now that you created your proyect, let's create a map.
+Now that you have created your proyect, let's create a map.
 
-If you has followed the tutorial you should specified a intial map when you created the proyect, in the command bellow use the inital map filenme as the filename for the map
+If you have followed the tutorial you should specified a intial map when you created the proyect, in the command bellow use the inital map filenme as the filename for the map
 
 First we are gonna move to the new game directory, next run the following command to create a new map (In filename, specifie the filename)
 ```
