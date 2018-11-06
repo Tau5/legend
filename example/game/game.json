@@ -1,0 +1,5 @@
+{
+    "name": "Game example",
+    "author": "Tau",
+    "initial_map":"map1.json"
+}
