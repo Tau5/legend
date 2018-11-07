@@ -49,10 +49,10 @@ fn start() {
     let mut file = File::open(Path::new(&get_path(format!("{}{}", "/game/", config.initial_map).to_string()))).unwrap();
     let mut content = String::new();
     file.read_to_string(&mut content).expect("Could not find game world file");
-    let mut world_file: World = serde_json::from_str(&content).unwrap();
-    let mut world = world_file.world.clone();
-    let mut char_map = world_file.char_map.clone();
-    let mut collision_map = world_file.collision_map.clone();
+    let world_file: World = serde_json::from_str(&content).unwrap();
+    let world = world_file.world.clone();
+    let char_map = world_file.char_map.clone();
+    let collision_map = world_file.collision_map.clone();
         //Start curses mode
         let window = initscr();
         window.refresh();
@@ -63,11 +63,19 @@ fn start() {
     window.printw("INSTRUCTIONS: Use Q to exit, Use the arrow keys or WASD to move, Use Z or K to interact.\nPress a key to continue");
     window.getch();
     //Start game loop with the initial_map
-    game_loop(world_file.clone(), &window, world, char_map, collision_map);
+    game_loop(world_file.clone(), &window, world, char_map, collision_map, false, 0,0);
 }
-fn game_loop(mut world_file: World, window: &pancurses::Window, mut world:Vec<u32>, mut char_map: Vec<char>, mut collision_map:Vec<u8>) {
-    let mut x = world_file.spawn[0];
-    let mut y = world_file.spawn[1];
+fn game_loop(world_file: World, window: &pancurses::Window, mut world:Vec<u32>, char_map: Vec<char>, mut collision_map:Vec<u8>, cus_coor: bool, cus_x: usize, cus_y: usize) {
+    
+    let mut x;
+    let mut y;
+    if cus_coor {
+        x = cus_x;
+        y = cus_y;
+    } else {
+        x = world_file.spawn[0];
+        y = world_file.spawn[1];
+    }
     let mut facing: u8 = 1;
     render(&window, &world, get_line_count(&world), x, y, &char_map, '*'); //Render the map
     loop {
@@ -126,20 +134,25 @@ fn run_event(name: String, window: &pancurses::Window, world:&World, world_map: 
             1: End current game_loop (Succefull)
     */
     for i in world.events.iter() {
-        if(i.0==name){
+        if i.0==name {
             for c in i.1.iter() {
-                if(c.0=="warp"){
+                if c.0 == "warp"{
                     let map = read_worldmap(c.clone().1); 
                     return_code = 1; //Set return code to kill the current game_loop
-                    game_loop(map.clone(), window, map.world, map.char_map, map.collision_map); //Start the game_loop in the new map
+                    game_loop(map.clone(), window, map.world, map.char_map, map.collision_map, false, 0,0); //Start the game_loop in the new map
                 }
-                if(c.0=="setw"){
+                if c.0=="warp_custom_coor"{
+                                        let map = read_worldmap(c.clone().1); 
+                    return_code = 1; //Set return code to kill the current game_loop
+                    game_loop(map.clone(), window, map.world, map.char_map, map.collision_map, true, c.2 as usize,c.3 as usize); //Start the game_loop in the new map
+                }
+                if c.0 == "setw"{
                     let index = get_loc(world.clone().world, c.2, c.3);
                     //std::fs::write("./log", format!("{:?}", c));
                     world_map[index] = c.4;
                 }
-                if(c.0=="setc"){
-                    let index = get_loc(world.clone().world, c.2, c.3);
+                if c.0 == "setc"{
+                    let index = get_loc_coll(world.clone().collision_map, c.2, c.3);
                     collision_map[index] = c.4 as u8;
                 }
             }
