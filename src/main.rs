@@ -22,7 +22,7 @@ struct World {
     char_map: Vec<char>,
     spawn: [usize; 2],
     events: Vec<(String, Vec<(String, String, u32, u32, u32, u32, u32)>)>,
-    triggers: Vec<(usize, usize, String)>
+    triggers: Vec<(usize, usize, String, usize, usize, usize, usize, usize)>
 }
 use std::path::Path;
 use pancurses::{initscr, endwin, Input, noecho};
@@ -60,7 +60,7 @@ fn start() {
         noecho();
         pancurses::curs_set(0);
     window.printw(format!("{} by {}\n\n", config.name, config.author));
-    window.printw("INSTRUCTIONS: Use Q to exit, Use the arrow keys or WASD to move.\nPress a key to continue");
+    window.printw("INSTRUCTIONS: Use Q to exit, Use the arrow keys or WASD to move, Use Z or K to interact.\nPress a key to continue");
     window.getch();
     //Start game loop with the initial_map
     game_loop(world_file.clone(), &window, world, char_map, collision_map);
@@ -68,25 +68,30 @@ fn start() {
 fn game_loop(mut world_file: World, window: &pancurses::Window, mut world:Vec<u32>, mut char_map: Vec<char>, mut collision_map:Vec<u8>) {
     let mut x = world_file.spawn[0];
     let mut y = world_file.spawn[1];
+    let mut facing: u8 = 1;
     render(&window, &world, get_line_count(&world), x, y, &char_map, '*'); //Render the map
     loop {
         match window.getch() {
             Some(Input::KeyLeft)|Some(Input::Character('a')) => { 
+                facing = 3;
                 if x>0&&check_collision(x-1, y, &collision_map) {
                     x-=1;
                 }
             },
             Some(Input::KeyRight)|Some(Input::Character('d')) => { 
+                facing = 1;
                 if check_collision(x+1, y, &collision_map) {
                     x+=1;
                 } 
             },
             Some(Input::KeyUp)|Some(Input::Character('w')) => { 
+                facing = 0;
                 if y>0&&check_collision(x, y-1, &collision_map) {
                     y-=1;
                 }
             },
             Some(Input::KeyDown)|Some(Input::Character('s')) => { 
+                facing = 2;
                 if check_collision(x, y+1, &collision_map) {
                     y+=1;
                 }
@@ -95,6 +100,10 @@ fn game_loop(mut world_file: World, window: &pancurses::Window, mut world:Vec<u3
             Some(Input::KeyExit)|Some(Input::Character('q')) => {
                 break
             },
+            Some(Input::Character('k'))|Some(Input::Character('z')) => {
+                let code = check_interactable_triggers(&window,&world_file,&mut world, &mut collision_map, x, y, facing); //Read for interact triggers
+                if code==1 { break ; }
+            }
             Some(_input) => {continue},
             None => {continue}
         }
@@ -138,10 +147,36 @@ fn run_event(name: String, window: &pancurses::Window, world:&World, world_map: 
     }
     return_code    
 }
+fn check_interactable_triggers(window: &pancurses::Window, world:&World, world_map: &mut Vec<u32>, collision_map: &mut Vec<u8>, x:usize, y:usize, facing: u8) -> u8 { 
+    let mut return_code = 0;
+    let mut face_x = x;
+    let mut face_y = y;
+    match facing {
+        0 => {
+            face_y-=1
+        },
+        1 => {
+            face_x+=1
+        },
+        2 => {
+            face_y+=1
+        },
+        3 => {
+            face_x-=1
+        },
+        _ => {}
+    }
+    for i in world.triggers.iter() { //Iterate trough triggers to check if a events must be ran
+        if i.0==face_x&&i.1==face_y&&i.3==1 {
+            return_code = run_event(i.clone().2, window, &world, world_map, collision_map, x, y);
+        }
+    }
+    return_code
+}
 fn check_triggers(window: &pancurses::Window, world:&World, world_map: &mut Vec<u32>, collision_map: &mut Vec<u8>, x:usize, y:usize) -> u8 { 
     let mut return_code = 0;
     for i in world.triggers.iter() { //Iterate trough triggers to check if a events must be ran
-        if i.0==x&&i.1==y {
+        if i.0==x&&i.1==y&&i.3==0 {
             return_code = run_event(i.clone().2, window, &world, world_map, collision_map, x, y);
         }
     }
