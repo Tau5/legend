@@ -66,7 +66,7 @@ fn start() {
     game_loop(world_file.clone(), &window, world, char_map, collision_map, false, 0,0);
 }
 fn game_loop(world_file: World, window: &pancurses::Window, mut world:Vec<u32>, char_map: Vec<char>, mut collision_map:Vec<u8>, cus_coor: bool, cus_x: usize, cus_y: usize) {
-    
+    let mut message: String = "".to_string();
     let mut x;
     let mut y;
     if cus_coor {
@@ -77,7 +77,7 @@ fn game_loop(world_file: World, window: &pancurses::Window, mut world:Vec<u32>, 
         y = world_file.spawn[1];
     }
     let mut facing: u8 = 1;
-    render(&window, &world, get_line_count(&world), x, y, &char_map, '*'); //Render the map
+    render(&window, &world, get_line_count(&world), x, y, &char_map, '*', message.clone()); //Render the map
     loop {
         match window.getch() {
             Some(Input::KeyLeft)|Some(Input::Character('a')) => { 
@@ -109,16 +109,23 @@ fn game_loop(world_file: World, window: &pancurses::Window, mut world:Vec<u32>, 
                 break
             },
             Some(Input::Character('k'))|Some(Input::Character('z')) => {
-                let code = check_interactable_triggers(&window,&world_file,&mut world, &mut collision_map, x, y, facing); //Read for interact triggers
-                if code==1 { break ; }
+                let trigger_data = check_interactable_triggers(&window,&world_file,&mut world, &mut collision_map, x, y, facing); //Read for interact triggers
+                if trigger_data.0==1 { break ; }
+                        if trigger_data.1 != "" {
+                            message = trigger_data.1;
+                        }
             }
             Some(_input) => {continue},
             None => {continue}
         }
         window.clear();
-        let code = check_triggers(&window,&world_file,&mut world, &mut collision_map, x, y); //Read for triggers
-        if code==1 { break ; }
-        render(&window, &world, get_line_count(&world), x, y, &char_map, '*');
+        let trigger_data = check_triggers(&window,&world_file,&mut world, &mut collision_map, x, y); //Read for triggers
+        if trigger_data.0==1 { break ; }
+        if trigger_data.1 != "" {
+            message = trigger_data.1;
+        }
+        
+        render(&window, &world, get_line_count(&world), x, y, &char_map, '*', message.clone());
         
     }
     
@@ -127,8 +134,9 @@ pub fn main() {
     start();
     endwin();
 }
-fn run_event(name: String, window: &pancurses::Window, world:&World, world_map: &mut Vec<u32>, collision_map: &mut Vec<u8>, x:usize, y:usize) -> u8 { //Executes a specific event
+fn run_event(name: String, window: &pancurses::Window, world:&World, world_map: &mut Vec<u32>, collision_map: &mut Vec<u8>, x:usize, y:usize) -> (u8, String) { //Executes a specific event
     let mut return_code = 0;
+    let mut message: String = "".to_string();
     /*
         Code list:
             1: End current game_loop (Succefull)
@@ -155,13 +163,16 @@ fn run_event(name: String, window: &pancurses::Window, world:&World, world_map: 
                     let index = get_loc_coll(world.clone().collision_map, c.2, c.3);
                     collision_map[index] = c.4 as u8;
                 }
+                if c.0 == "msg" {
+                    message = c.clone().1; 
+                }
             }
         }
     }
-    return_code    
+    (return_code, message)
 }
-fn check_interactable_triggers(window: &pancurses::Window, world:&World, world_map: &mut Vec<u32>, collision_map: &mut Vec<u8>, x:usize, y:usize, facing: u8) -> u8 { 
-    let mut return_code = 0;
+fn check_interactable_triggers(window: &pancurses::Window, world:&World, world_map: &mut Vec<u32>, collision_map: &mut Vec<u8>, x:usize, y:usize, facing: u8) -> (u8, String) { 
+    let mut return_data: (u8, String) = (0,"".to_string());
     let mut face_x = x;
     let mut face_y = y;
     match facing {
@@ -181,19 +192,19 @@ fn check_interactable_triggers(window: &pancurses::Window, world:&World, world_m
     }
     for i in world.triggers.iter() { //Iterate trough triggers to check if a events must be ran
         if i.0==face_x&&i.1==face_y&&i.3==1 {
-            return_code = run_event(i.clone().2, window, &world, world_map, collision_map, x, y);
+            return_data = run_event(i.clone().2, window, &world, world_map, collision_map, x, y);
         }
     }
-    return_code
+    return_data
 }
-fn check_triggers(window: &pancurses::Window, world:&World, world_map: &mut Vec<u32>, collision_map: &mut Vec<u8>, x:usize, y:usize) -> u8 { 
-    let mut return_code = 0;
+fn check_triggers(window: &pancurses::Window, world:&World, world_map: &mut Vec<u32>, collision_map: &mut Vec<u8>, x:usize, y:usize) -> (u8, String) { 
+    let mut return_data: (u8, String) = (0,"".to_string());
     for i in world.triggers.iter() { //Iterate trough triggers to check if a events must be ran
         if i.0==x&&i.1==y&&i.3==0 {
-            return_code = run_event(i.clone().2, window, &world, world_map, collision_map, x, y);
+            return_data = run_event(i.clone().2, window, &world, world_map, collision_map, x, y);
         }
     }
-    return_code
+    return_data
 }
 fn check_collision(x:usize, y:usize, collision_map: &Vec<u8>)-> bool{ //Check for collisions
     let line = get_collision_line(&collision_map, y as u32);
@@ -268,7 +279,7 @@ fn get_loc_coll(world: Vec<u8>, x: u32, y:u32)-> usize{ //Get the index
     }
     index
 }
- fn render(window: &pancurses::Window,world: &Vec<u32>, line_number: u32, x:usize, y:usize, char_map: &Vec<char>, character_char: char) { //Render the map
+ fn render(window: &pancurses::Window,world: &Vec<u32>, line_number: u32, x:usize, y:usize, char_map: &Vec<char>, character_char: char, message: String) { //Render the map
      window.clear();
      for i in 0..line_number {
          let line = get_line(world.to_vec(), i);
@@ -280,6 +291,8 @@ fn get_loc_coll(world: Vec<u8>, x: u32, y:u32)-> usize{ //Get the index
             }
             
          }
-         window.addch('\n');
+        window.addch('\n');
      }
+        window.printw("\n\n");
+        window.printw(message);
      }
