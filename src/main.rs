@@ -57,7 +57,11 @@ fn has_save() -> bool {
 }
 fn get_save_name() -> String {
     let args: Vec<_> = env::args().collect();
-    args[0].to_string()
+    args[1].to_string()
+}
+fn get_save_path() -> String {
+    let args: Vec<_> = env::args().collect();
+    Path::new(&format!("{}/{}", env::current_dir().unwrap().display(), args[1].to_string())).display().to_string()
 }
 fn get_save() -> Save {
     let args: Vec<_> = env::args().collect();
@@ -158,11 +162,11 @@ fn game_loop(world_file: World, window: &pancurses::Window, mut world:Vec<u32>, 
                 };
                 let save_str = serde_json::to_string(&save).unwrap();
                 if has_save() {
-                    let file = File::open(&get_save_name()).unwrap();
+                    let file = File::open(&get_save_path()).unwrap();
                     let mut writer = io::BufWriter::new(&file);
                     write!(writer, "{}", save_str);
                 } else {
-                    let file = File::create(&get_path(format!("/{}.save", config.clone().name))).unwrap();
+                    let file = File::create(&format!("{}/{}.save", env::current_dir().unwrap().display(), config.clone().name)).unwrap();
                     let mut writer = io::BufWriter::new(&file);
                     write!(writer, "{}", save_str);
                 }
