@@ -5,21 +5,43 @@ use std::fs::File;
 use std::env;
 use std::io;
 extern crate serde;
-
+extern crate dirs;
 #[macro_use]
 extern crate serde_derive;
+extern crate ears;
+use ears::{Music, Sound, AudioController};
 
-
+#[derive(Serialize, Deserialize, Clone)]
+struct UIitem {
+    label: String,
+    x: i32,
+    y: i32,
+    item_type: usize,
+    start_from_bottom: bool,
+    start_from_left: bool,
+    selection_id: usize
+}
 #[derive(Serialize, Deserialize, Clone)]
 struct Config {
     name: String,
     author: String,
-    initial_map: String
+    short_name: String,
+    initial_map: String,
+    selection_sound: String,
+    interact_sound: String,
+    ui: Vec<UIitem>,
+    selection_max: usize,
+    default_selection: usize
 }
+
 
 #[derive(Serialize, Deserialize, Clone)]
 struct Save {
-    map: String
+    map: String,
+    x: usize,
+    y: usize,
+    world: Vec<u32>,
+    collision_map: Vec<u8>
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -48,29 +70,38 @@ fn read_worldmap(filename: String) -> World { //Get a World structure from a map
     world_file
 }
 fn has_save() -> bool {
-    let mut result = false;
-    let args: Vec<_> = env::args().collect();
-    if args.len() > 1 {
-        result = true;
-    }
-    result
+    Path::new(&get_save_path()).exists()
 }
 fn get_save_name() -> String {
-    let args: Vec<_> = env::args().collect();
-    args[1].to_string()
+    format!("{}.save", get_config().clone().short_name)
 }
 fn get_save_path() -> String {
     let args: Vec<_> = env::args().collect();
-    Path::new(&format!("{}/{}", env::current_dir().unwrap().display(), args[1].to_string())).display().to_string()
+    Path::new(&format!("{}/legend/saves/{}.save", dirs::home_dir().unwrap().display(), get_config().clone().short_name)).display().to_string()
 }
 fn get_save() -> Save {
-    let args: Vec<_> = env::args().collect();
-    let mut file = File::open(Path::new(&format!("{}/{}", env::current_dir().unwrap().display(), args[1].to_string()))).unwrap();
+    let mut file = File::open(Path::new(&format!("{}/legend/saves/{}.save", dirs::home_dir().unwrap().display(), get_config().clone().short_name))).unwrap();
     let mut content = String::new();
     file.read_to_string(&mut content).expect("Some error ocurred and your save file could not be loaded");
     let save: Save = serde_json::from_str(&content).unwrap();
     save
 }   
+
+fn get_config() -> Config {
+    let mut file = File::open(Path::new(&get_path("/game/game.json".to_string()))).unwrap();
+    let mut content = String::new();
+    file.read_to_string(&mut content).expect("Could not find game config file");
+    let config: Config = serde_json::from_str(&content).unwrap();
+    config
+}
+fn check_legend_dirs(){
+    if !(Path::new(&format!("{}/legend", dirs::home_dir().unwrap().display())).exists()) {
+        std::fs::create_dir(Path::new(&format!("{}/legend", dirs::home_dir().unwrap().display()))).expect("Can't create legend directory. This is a fatal error, check the permissions to resolve this error.");
+    }
+    if !(Path::new(&format!("{}/legend/saves", dirs::home_dir().unwrap().display())).exists()) {
+        std::fs::create_dir(Path::new(&format!("{}/legend/saves", dirs::home_dir().unwrap().display()))).expect("Can't create saves directory. This is a fatal error, check the permissions to resolve this error.");
+    }
+}
 fn start() {
     //Read game manifest and load initial_map
     
@@ -78,8 +109,9 @@ fn start() {
     let mut content = String::new();
     file.read_to_string(&mut content).expect("Could not find game config file");
     let config: Config = serde_json::from_str(&content).unwrap();
-    let mut file;
+    //let mut file;
     let mut actual_map = "".to_string();
+    /* OLD Restore playtrough method
     if has_save() {
         actual_map = get_save().map;
         file = File::open(Path::new(&get_path(format!("{}{}", "/game/", get_save().map).to_string()))).unwrap();
@@ -87,26 +119,147 @@ fn start() {
         actual_map = config.clone().initial_map;
         file = File::open(Path::new(&get_path(format!("{}{}", "/game/", config.initial_map).to_string()))).unwrap();
     }
+    */
     let mut content = String::new();
-    
+    /* MAP Loading phase
     file.read_to_string(&mut content).expect("Could not find game world file");
     let world_file: World = serde_json::from_str(&content).unwrap();
     let world = world_file.world.clone();
     let char_map = world_file.char_map.clone();
     let collision_map = world_file.collision_map.clone();
+    */
         //Start curses mode
         let window = initscr();
         window.refresh();
         window.keypad(true);
         noecho();
         pancurses::curs_set(0);
+        menu(&window, config);
+    /* OLD "MENU"
     window.printw(format!("{} by {}\n\n", config.name, config.author));
     window.printw("INSTRUCTIONS:\nPress Q to exit\nPress the arrow keys or WASD to move\nPress Z or K to interact\nPress R to save\nTo load a savefile include the file as argument when launching the game\n\nPress a key to continue");
     window.getch();
+    */
     //Start game loop with the initial_map
+    //game_loop(world_file.clone(), &window, world, char_map, collision_map, false, 0,0, actual_map, config.clone());
+}
+fn new_game(window: &pancurses::Window, config: Config){
+    let mut actual_map = "".to_string();
+    actual_map = config.clone().initial_map;
+    let mut file;
+    let mut content = String::new();
+    
+    file = File::open(Path::new(&get_path(format!("{}{}", "/game/", config.initial_map).to_string()))).unwrap();
+    file.read_to_string(&mut content).expect("Could not find game world file");
+    let world_file: World = serde_json::from_str(&content).unwrap();
+    let world = world_file.world.clone();
+    let char_map = world_file.char_map.clone();
+    let collision_map = world_file.collision_map.clone();
     game_loop(world_file.clone(), &window, world, char_map, collision_map, false, 0,0, actual_map, config.clone());
 }
+fn continue_game(window: &pancurses::Window, config: Config){
+    if(!has_save()){ new_game(&window, config.clone()); return; }
+    let save = get_save();
+    let mut actual_map = save.clone().map;
+    let mut file;
+    let mut content = String::new();
+    file = File::open(Path::new(&get_path(format!("{}{}", "/game/", save.clone().map).to_string()))).unwrap();
+    file.read_to_string(&mut content).expect("Could not find game world file");
+    let world_file: World = serde_json::from_str(&content).unwrap();
+    let world = world_file.world.clone();
+    let char_map = world_file.char_map.clone();
+    let collision_map = world_file.collision_map.clone();
+    game_loop(world_file.clone(), &window, save.world, char_map, save.collision_map, true, save.x, save.y, actual_map, config.clone());
+}
+fn render_menu(window: &pancurses::Window, config: Config, selection: usize){
+    
+    for item in config.clone().ui {
+        let mut x = item.x;
+        let mut y = item.y;
+        if item.start_from_bottom {
+            y = window.get_max_y() - item.y;
+        }
+        if item.start_from_left {
+            x = window.get_max_x() - item.x;
+        }
+        window.mv(y, x);
+        match item.item_type {
+            0 => {
+                if selection == item.selection_id { window.printw(format!("* {}", item.label)); } else { window.printw(item.label); }
+            },
+            1 => {
+                if selection == item.selection_id { window.printw(format!("* {}", item.label)); } else { window.printw(item.label); }
+            },
+            2 => {
+                if selection == item.selection_id { window.printw(format!("* {}", item.label)); } else { window.printw(item.label); }
+            },
+            3 => {
+                if item.label != "" { window.printw(item.label); } else { window.printw(config.clone().name); }
+            }
+            _ => {continue}
+        }
+    }
+
+
+    /*
+    UI Item Type table
+
+    --------------------------------------------------------------------------------
+    | ID | Name    | Selectable? | Description                                     |
+    --------------------------------------------------------------------------------
+    |0   |Quit     | Yes         | Button that quits the game                      |
+    |1   |New Game | Yes         | Button to start a new game                      |
+    |2   |Continue | Yes         | Button to continue the game from the save file  |
+    |3   |Title    | No          | A text label that displays the name of the game | 
+    |                              if a label is provided it will be displayed     |
+    --------------------------------------------------------------------------------
+    */
+}
+fn menu(window: &pancurses::Window, config: Config){
+    let mut selection: usize = config.default_selection;
+    let max_selection = config.selection_max; //Temporal, it will be stated by the config in the future
+    let mut select_sound = Sound::new(&get_path(format!("/game/{}", config.selection_sound))).unwrap();
+    render_menu(&window, config.clone(), selection);
+    let mut stop = false;
+    while !stop  {
+        match window.getch() {
+            Some(Input::KeyExit)|Some(Input::Character('q')) => {
+                break
+            },
+            Some(Input::KeyDown)|Some(Input::KeyRight)|Some(Input::Character('s'))|Some(Input::Character('d')) => { 
+                if selection>0 {
+                    selection-=1;
+                    select_sound.play();
+                }
+            },
+            Some(Input::KeyUp)|Some(Input::KeyLeft)|Some(Input::Character('w'))|Some(Input::Character('a')) => { 
+                if selection<max_selection {
+                    selection+=1;
+                    select_sound.play();
+                }     
+            },
+            Some(Input::Character('\n'))|Some(Input::Character('z'))|Some(Input::Character('k')) => { 
+                for item in config.clone().ui {
+                    if(item.selection_id==selection){
+                        match item.item_type {
+                            0 => stop=true,
+                            1 => { new_game(&window, config.clone()); } ,
+                            2 => { continue_game(&window, config.clone()); },
+                            _ => continue
+                        }
+                    }
+                }
+                
+            },
+            Some(_input) => {continue},
+            None => {continue}
+        }
+        window.clear();
+        render_menu(&window, config.clone(), selection);
+    }
+}
 fn game_loop(world_file: World, window: &pancurses::Window, mut world:Vec<u32>, char_map: Vec<char>, mut collision_map:Vec<u8>, cus_coor: bool, cus_x: usize, cus_y: usize, actual_map: String, config: Config) {
+    let mut interact_sound = Sound::new(&get_path(format!("/game/{}", config.interact_sound))).unwrap();
     let mut message: String = "".to_string();
     let mut x;
     let mut y;
@@ -147,26 +300,56 @@ fn game_loop(world_file: World, window: &pancurses::Window, mut world:Vec<u32>, 
                     
             },
             Some(Input::KeyExit)|Some(Input::Character('q')) => {
+                let save = Save {
+                    map: actual_map.clone(),
+                    x: x,
+                    y: y,
+                    world: world.clone(),
+                    collision_map: collision_map.clone()
+                };
+                
+                let save_str = serde_json::to_string(&save).unwrap();
+                if has_save() {
+                    check_legend_dirs();
+                    let file = File::create(&format!("{}/legend/saves/{}.save", dirs::home_dir().unwrap().display(), config.clone().short_name)).unwrap();
+                    let mut writer = io::BufWriter::new(&file);
+                    write!(writer, "{}", save_str);
+                    
+                } else {
+                    check_legend_dirs();
+                    let file = File::create(&format!("{}/legend/saves/{}.save", dirs::home_dir().unwrap().display(), config.clone().short_name)).unwrap();
+                    let mut writer = io::BufWriter::new(&file);
+                    write!(writer, "{}", save_str);
+                }
                 break
             },
             Some(Input::Character('k'))|Some(Input::Character('z')) => {
+                interact_sound.play();
                 let trigger_data = check_interactable_triggers(&window,&world_file,&mut world, &mut collision_map, x, y, facing, config.clone()); //Read for interact triggers
                 if trigger_data.0==1 { break ; }
                         if trigger_data.1 != "" {
                             message = trigger_data.1;
-                        }
+                }
             },
             Some(Input::Character('r')) => {
                 let save = Save {
-                    map: actual_map.clone()
+                    map: actual_map.clone(),
+                    x: x,
+                    y: y,
+                    world: world.clone(),
+                    collision_map: collision_map.clone()
                 };
+                
                 let save_str = serde_json::to_string(&save).unwrap();
                 if has_save() {
-                    let file = File::open(&get_save_path()).unwrap();
+                    check_legend_dirs();
+                    let file = File::create(&format!("{}/legend/saves/{}.save", dirs::home_dir().unwrap().display(), config.clone().short_name)).unwrap();
                     let mut writer = io::BufWriter::new(&file);
                     write!(writer, "{}", save_str);
+                    
                 } else {
-                    let file = File::create(&format!("{}/{}.save", env::current_dir().unwrap().display(), config.clone().name)).unwrap();
+                    check_legend_dirs();
+                    let file = File::create(&format!("{}/legend/saves/{}.save", dirs::home_dir().unwrap().display(), config.clone().short_name)).unwrap();
                     let mut writer = io::BufWriter::new(&file);
                     write!(writer, "{}", save_str);
                 }
