@@ -2,5 +2,49 @@
     "name": "Game example",
     "short_name":"example",
     "author": "Tau",
-    "initial_map":"map1.json"
+    "initial_map":"map1.json",
+    "selection_sound":"sounds/selection.oga",
+    "interact_sound":"sounds/interact.oga",
+    "selection_max":2,
+    "default_selection":2,
+    "ui": [
+        {
+            "label": "",
+            "x": 1,
+            "y": 1,
+            "item_type":3,
+            "start_from_bottom":false,
+            "start_from_left":false,
+            "selection_id":10
+        },
+        {
+            "label": "Continue",
+            "x": 1,
+            "y": 5,
+            "item_type":2,
+            "start_from_bottom":true,
+            "start_from_left":false,
+            "selection_id":2
+        },
+        {
+            "label": "New game",
+            "x": 1,
+            "y": 4,
+            "item_type":1,
+            "start_from_bottom":true,
+            "start_from_left":false,
+            "selection_id":1
+        },
+
+        {
+            "label": "Quit",
+            "x": 1,
+            "y": 2,
+            "item_type":0,
+            "start_from_bottom":true,
+            "start_from_left":false,
+            "selection_id":0
+        }
+
+    ]
 }
