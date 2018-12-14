@@ -2,14 +2,13 @@ extern crate pancurses;
 extern crate serde_json;
 use std::io::prelude::*;
 use std::fs::File;
-use std::env;
 use std::io;
 extern crate serde;
 extern crate dirs;
 #[macro_use]
 extern crate serde_derive;
 extern crate ears;
-use ears::{Music, Sound, AudioController};
+use ears::{Sound, AudioController};
 
 #[derive(Serialize, Deserialize, Clone)]
 struct UIitem {
@@ -41,7 +40,8 @@ struct Save {
     x: usize,
     y: usize,
     world: Vec<u32>,
-    collision_map: Vec<u8>
+    collision_map: Vec<u8>,
+    vars: Vec<i16>
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -72,11 +72,13 @@ fn read_worldmap(filename: String) -> World { //Get a World structure from a map
 fn has_save() -> bool {
     Path::new(&get_save_path()).exists()
 }
+/*
 fn get_save_name() -> String {
     format!("{}.save", get_config().clone().short_name)
 }
+*/
+
 fn get_save_path() -> String {
-    let args: Vec<_> = env::args().collect();
     Path::new(&format!("{}/legend/saves/{}.save", dirs::home_dir().unwrap().display(), get_config().clone().short_name)).display().to_string()
 }
 fn get_save() -> Save {
@@ -110,7 +112,6 @@ fn start() {
     file.read_to_string(&mut content).expect("Could not find game config file");
     let config: Config = serde_json::from_str(&content).unwrap();
     //let mut file;
-    let mut actual_map = "".to_string();
     /* OLD Restore playtrough method
     if has_save() {
         actual_map = get_save().map;
@@ -120,7 +121,6 @@ fn start() {
         file = File::open(Path::new(&get_path(format!("{}{}", "/game/", config.initial_map).to_string()))).unwrap();
     }
     */
-    let mut content = String::new();
     /* MAP Loading phase
     file.read_to_string(&mut content).expect("Could not find game world file");
     let world_file: World = serde_json::from_str(&content).unwrap();
@@ -144,8 +144,8 @@ fn start() {
     //game_loop(world_file.clone(), &window, world, char_map, collision_map, false, 0,0, actual_map, config.clone());
 }
 fn new_game(window: &pancurses::Window, config: Config){
-    let mut actual_map = "".to_string();
-    actual_map = config.clone().initial_map;
+    let mut vars: Vec<i16> = Vec::new();
+    let actual_map = config.clone().initial_map;
     let mut file;
     let mut content = String::new();
     
@@ -155,21 +155,21 @@ fn new_game(window: &pancurses::Window, config: Config){
     let world = world_file.world.clone();
     let char_map = world_file.char_map.clone();
     let collision_map = world_file.collision_map.clone();
-    game_loop(world_file.clone(), &window, world, char_map, collision_map, false, 0,0, actual_map, config.clone());
+    game_loop(world_file.clone(), &window, world, char_map, collision_map, false, 0,0, actual_map, config.clone(), &mut vars);
 }
 fn continue_game(window: &pancurses::Window, config: Config){
-    if(!has_save()){ new_game(&window, config.clone()); return; }
+    if !has_save() { new_game(&window, config.clone()); return; }
     let save = get_save();
-    let mut actual_map = save.clone().map;
+    let actual_map = save.clone().map;
     let mut file;
     let mut content = String::new();
+    
     file = File::open(Path::new(&get_path(format!("{}{}", "/game/", save.clone().map).to_string()))).unwrap();
     file.read_to_string(&mut content).expect("Could not find game world file");
     let world_file: World = serde_json::from_str(&content).unwrap();
-    let world = world_file.world.clone();
     let char_map = world_file.char_map.clone();
-    let collision_map = world_file.collision_map.clone();
-    game_loop(world_file.clone(), &window, save.world, char_map, save.collision_map, true, save.x, save.y, actual_map, config.clone());
+    let mut vars = save.clone().vars;
+    game_loop(world_file.clone(), &window, save.world, char_map, save.collision_map, true, save.x, save.y, actual_map, config.clone(), &mut vars);
 }
 fn render_menu(window: &pancurses::Window, config: Config, selection: usize){
     
@@ -240,7 +240,7 @@ fn menu(window: &pancurses::Window, config: Config){
             },
             Some(Input::Character('\n'))|Some(Input::Character('z'))|Some(Input::Character('k')) => { 
                 for item in config.clone().ui {
-                    if(item.selection_id==selection){
+                    if item.selection_id==selection {
                         match item.item_type {
                             0 => stop=true,
                             1 => { new_game(&window, config.clone()); } ,
@@ -258,7 +258,7 @@ fn menu(window: &pancurses::Window, config: Config){
         render_menu(&window, config.clone(), selection);
     }
 }
-fn game_loop(world_file: World, window: &pancurses::Window, mut world:Vec<u32>, char_map: Vec<char>, mut collision_map:Vec<u8>, cus_coor: bool, cus_x: usize, cus_y: usize, actual_map: String, config: Config) {
+fn game_loop(world_file: World, window: &pancurses::Window, mut world:Vec<u32>, char_map: Vec<char>, mut collision_map:Vec<u8>, cus_coor: bool, cus_x: usize, cus_y: usize, actual_map: String, config: Config, vars: &mut Vec<i16>) {
     let mut interact_sound = Sound::new(&get_path(format!("/game/{}", config.interact_sound))).unwrap();
     let mut message: String = "".to_string();
     let mut x;
@@ -271,6 +271,18 @@ fn game_loop(world_file: World, window: &pancurses::Window, mut world:Vec<u32>, 
         y = world_file.spawn[1];
     }
     let mut facing: u8 = 1;
+    let trigger_data = check_init_triggers(&window,&world_file,&mut world, &mut collision_map, x, y, config.clone(), vars); //Read for triggers
+    if trigger_data.0==1 { return ; }
+    if trigger_data.1 != "" {
+            message = trigger_data.1;
+    }
+
+    let trigger_data = check_triggers(&window,&world_file,&mut world, &mut collision_map, x, y, config.clone(), vars); //Read for triggers
+    if trigger_data.0==1 { return ; }
+    if trigger_data.1 != "" {
+            message = trigger_data.1;
+    }
+    
     render(&window, &world, get_line_count(&world), x, y, &char_map, '*', message.clone()); //Render the map
     loop {
         match window.getch() {
@@ -305,7 +317,8 @@ fn game_loop(world_file: World, window: &pancurses::Window, mut world:Vec<u32>, 
                     x: x,
                     y: y,
                     world: world.clone(),
-                    collision_map: collision_map.clone()
+                    collision_map: collision_map.clone(),
+                    vars: vars.to_vec()
                 };
                 
                 let save_str = serde_json::to_string(&save).unwrap();
@@ -325,7 +338,7 @@ fn game_loop(world_file: World, window: &pancurses::Window, mut world:Vec<u32>, 
             },
             Some(Input::Character('k'))|Some(Input::Character('z')) => {
                 interact_sound.play();
-                let trigger_data = check_interactable_triggers(&window,&world_file,&mut world, &mut collision_map, x, y, facing, config.clone()); //Read for interact triggers
+                let trigger_data = check_interactable_triggers(&window,&world_file,&mut world, &mut collision_map, x, y, facing, config.clone(), vars); //Read for interact triggers
                 if trigger_data.0==1 { break ; }
                         if trigger_data.1 != "" {
                             message = trigger_data.1;
@@ -337,7 +350,8 @@ fn game_loop(world_file: World, window: &pancurses::Window, mut world:Vec<u32>, 
                     x: x,
                     y: y,
                     world: world.clone(),
-                    collision_map: collision_map.clone()
+                    collision_map: collision_map.clone(),
+                    vars: vars.to_vec()
                 };
                 
                 let save_str = serde_json::to_string(&save).unwrap();
@@ -358,7 +372,7 @@ fn game_loop(world_file: World, window: &pancurses::Window, mut world:Vec<u32>, 
             None => {continue}
         }
         window.clear();
-        let trigger_data = check_triggers(&window,&world_file,&mut world, &mut collision_map, x, y, config.clone()); //Read for triggers
+        let trigger_data = check_triggers(&window,&world_file,&mut world, &mut collision_map, x, y, config.clone(), vars); //Read for triggers
         if trigger_data.0==1 { break ; }
         if trigger_data.1 != "" {
             message = trigger_data.1;
@@ -374,7 +388,7 @@ pub fn main() {
     start();
     endwin();
 }
-fn run_event(name: String, window: &pancurses::Window, world:&World, world_map: &mut Vec<u32>, collision_map: &mut Vec<u8>, x:usize, y:usize, config: Config) -> (u8, String) { //Executes a specific event
+fn run_event(name: String, window: &pancurses::Window, world:&World, world_map: &mut Vec<u32>, collision_map: &mut Vec<u8>, _x:usize, _y:usize, config: Config, vars: &mut Vec<i16>) -> (u8, String) { //Executes a specific event
     let mut return_code = 0;
     let mut message: String = "".to_string();
     /*
@@ -387,12 +401,12 @@ fn run_event(name: String, window: &pancurses::Window, world:&World, world_map: 
                 if c.0 == "warp"{
                     let map = read_worldmap(c.clone().1); 
                     return_code = 1; //Set return code to kill the current game_loop
-                    game_loop(map.clone(), window, map.world, map.char_map, map.collision_map, false, 0,0, c.clone().1, config.clone()); //Start the game_loop in the new map
+                    game_loop(map.clone(), window, map.world, map.char_map, map.collision_map, false, 0,0, c.clone().1, config.clone(), vars); //Start the game_loop in the new map
                 }
                 if c.0=="warp_custom_coor"{
-                                        let map = read_worldmap(c.clone().1); 
+                    let map = read_worldmap(c.clone().1); 
                     return_code = 1; //Set return code to kill the current game_loop
-                    game_loop(map.clone(), window, map.world, map.char_map, map.collision_map, true, c.2 as usize,c.3 as usize, c.clone().1, config.clone()); //Start the game_loop in the new map
+                    game_loop(map.clone(), window, map.world, map.char_map, map.collision_map, true, c.2 as usize,c.3 as usize, c.clone().1, config.clone(), vars); //Start the game_loop in the new map
                 }
                 if c.0 == "setw"{
                     let index = get_loc(world.clone().world, c.2, c.3);
@@ -406,12 +420,31 @@ fn run_event(name: String, window: &pancurses::Window, world:&World, world_map: 
                 if c.0 == "msg" {
                     message = c.clone().1; 
                 }
+                if c.0 == "set" {
+                    if c.2 >= vars.len() as u32 {
+                        for _i in vars.len()..(c.2 as usize)+1 {
+                            vars.push(0);
+                        }
+                        
+                    }
+                    vars[c.2 as usize] = c.3 as i16;
+                }
+                if c.0 == "if" {
+                    if vars.len() <= c.2 as usize {
+                        break;
+                    } else 
+                    if vars[c.2 as usize] == c.3 as i16 {
+                        continue;
+                    } else {
+                        break;
+                    }
+                }
             }
         }
     }
     (return_code, message)
 }
-fn check_interactable_triggers(window: &pancurses::Window, world:&World, world_map: &mut Vec<u32>, collision_map: &mut Vec<u8>, x:usize, y:usize, facing: u8, config: Config) -> (u8, String) { 
+fn check_interactable_triggers(window: &pancurses::Window, world:&World, world_map: &mut Vec<u32>, collision_map: &mut Vec<u8>, x:usize, y:usize, facing: u8, config: Config, vars: &mut Vec<i16>) -> (u8, String) { 
     let mut return_data: (u8, String) = (0,"".to_string());
     let mut face_x = x;
     let mut face_y = y;
@@ -432,16 +465,25 @@ fn check_interactable_triggers(window: &pancurses::Window, world:&World, world_m
     }
     for i in world.triggers.iter() { //Iterate trough triggers to check if a events must be ran
         if i.0==face_x&&i.1==face_y&&i.3==1 {
-            return_data = run_event(i.clone().2, window, &world, world_map, collision_map, x, y, config.clone());
+            return_data = run_event(i.clone().2, window, &world, world_map, collision_map, x, y, config.clone(), vars);
         }
     }
     return_data
 }
-fn check_triggers(window: &pancurses::Window, world:&World, world_map: &mut Vec<u32>, collision_map: &mut Vec<u8>, x:usize, y:usize, config: Config) -> (u8, String) { 
+fn check_triggers(window: &pancurses::Window, world:&World, world_map: &mut Vec<u32>, collision_map: &mut Vec<u8>, x:usize, y:usize, config: Config, vars: &mut Vec<i16>) -> (u8, String) { 
     let mut return_data: (u8, String) = (0,"".to_string());
     for i in world.triggers.iter() { //Iterate trough triggers to check if a events must be ran
         if i.0==x&&i.1==y&&i.3==0 {
-            return_data = run_event(i.clone().2, window, &world, world_map, collision_map, x, y, config.clone());
+            return_data = run_event(i.clone().2, window, &world, world_map, collision_map, x, y, config.clone(), vars);
+        }
+    }
+    return_data
+}
+fn check_init_triggers(window: &pancurses::Window, world:&World, world_map: &mut Vec<u32>, collision_map: &mut Vec<u8>, x:usize, y:usize, config: Config, vars: &mut Vec<i16>) -> (u8, String) { 
+    let mut return_data: (u8, String) = (0,"".to_string());
+    for i in world.triggers.iter() { //Iterate trough triggers to check if a events must be ran
+        if i.3==2 {
+            return_data = run_event(i.clone().2, window, &world, world_map, collision_map, x, y, config.clone(), vars);
         }
     }
     return_data
