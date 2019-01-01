@@ -276,7 +276,6 @@ fn game_loop(world_file: World, window: &pancurses::Window, mut world:Vec<u32>, 
     if trigger_data.1 != "" {
             message = trigger_data.1;
     }
-
     let trigger_data = check_triggers(&window,&world_file,&mut world, &mut collision_map, x, y, config.clone(), vars); //Read for triggers
     if trigger_data.0==1 { return ; }
     if trigger_data.1 != "" {
@@ -338,6 +337,7 @@ fn game_loop(world_file: World, window: &pancurses::Window, mut world:Vec<u32>, 
             },
             Some(Input::Character('k'))|Some(Input::Character('z')) => {
                 interact_sound.play();
+                //Ya te imaginarás lo que hace check_interactable_triggers
                 let trigger_data = check_interactable_triggers(&window,&world_file,&mut world, &mut collision_map, x, y, facing, config.clone(), vars); //Read for interact triggers
                 if trigger_data.0==1 { break ; }
                         if trigger_data.1 != "" {
@@ -388,7 +388,7 @@ pub fn main() {
     start();
     endwin();
 }
-fn run_event(name: String, window: &pancurses::Window, world:&World, world_map: &mut Vec<u32>, collision_map: &mut Vec<u8>, _x:usize, _y:usize, config: Config, vars: &mut Vec<i16>) -> (u8, String) { //Executes a specific event
+fn run_event(name: String, window: &pancurses::Window, world: &World, world_map: &mut Vec<u32>, collision_map: &mut Vec<u8>, _x:usize, _y:usize, config: Config, vars: &mut Vec<i16>) -> (u8, String) { //Executes a specific event
     let mut return_code = 0;
     let mut message: String = "".to_string();
     /*
@@ -438,6 +438,16 @@ fn run_event(name: String, window: &pancurses::Window, world:&World, world_map: 
                     } else {
                         break;
                     }
+                }
+                if c.0 == "movie" {
+                 let mut content = String::new();
+                 let mut file = File::open(Path::new(&get_path(format!("{}{}", "/game/", c.1).to_string()))).unwrap();
+                 file.read_to_string(&mut content).expect("Could not find movie file");
+                 window.clear();
+                 window.mv(0,0);
+                 window.printw(content);
+                 window.printw("\nPress any key to continue");
+                 window.getch();
                 }
             }
         }
