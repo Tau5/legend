@@ -337,7 +337,6 @@ fn game_loop(world_file: World, window: &pancurses::Window, mut world:Vec<u32>, 
             },
             Some(Input::Character('k'))|Some(Input::Character('z')) => {
                 interact_sound.play();
-                //Ya te imaginarás lo que hace check_interactable_triggers
                 let trigger_data = check_interactable_triggers(&window,&world_file,&mut world, &mut collision_map, x, y, facing, config.clone(), vars); //Read for interact triggers
                 if trigger_data.0==1 { break ; }
                         if trigger_data.1 != "" {
