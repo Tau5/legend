@@ -7,7 +7,9 @@ extern crate serde;
 extern crate dirs;
 #[macro_use]
 extern crate serde_derive;
+#[cfg(feature = "sound")]
 extern crate ears;
+#[cfg(feature = "sound")]
 use ears::{Sound, AudioController};
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -104,6 +106,8 @@ fn check_legend_dirs(){
         std::fs::create_dir(Path::new(&format!("{}/legend/saves", dirs::home_dir().unwrap().display()))).expect("Can't create saves directory. This is a fatal error, check the permissions to resolve this error.");
     }
 }
+    
+
 fn start() {
     //Read game manifest and load initial_map
     
@@ -134,7 +138,9 @@ fn start() {
         window.keypad(true);
         noecho();
         pancurses::curs_set(0);
-        menu(&window, config);
+        menu(&window, config.clone());
+
+        
     /* OLD "MENU"
     window.printw(format!("{} by {}\n\n", config.name, config.author));
     window.printw("INSTRUCTIONS:\nPress Q to exit\nPress the arrow keys or WASD to move\nPress Z or K to interact\nPress R to save\nTo load a savefile include the file as argument when launching the game\n\nPress a key to continue");
@@ -185,10 +191,18 @@ fn render_menu(window: &pancurses::Window, config: Config, selection: usize){
         window.mv(y, x);
         match item.item_type {
             0 => {
-                if selection == item.selection_id { window.printw(format!("* {}", item.label)); } else { window.printw(item.label); }
+                if selection == item.selection_id { 
+                    window.printw(format!("* {}", item.label)); 
+
+                } else { window.printw(item.label); }
+                
             },
             1 => {
-                if selection == item.selection_id { window.printw(format!("* {}", item.label)); } else { window.printw(item.label); }
+                if selection == item.selection_id { 
+                    window.printw(format!("* {}", item.label)); 
+                    
+                } else { window.printw(item.label); }
+                
             },
             2 => {
                 if selection == item.selection_id { window.printw(format!("* {}", item.label)); } else { window.printw(item.label); }
@@ -218,7 +232,9 @@ fn render_menu(window: &pancurses::Window, config: Config, selection: usize){
 fn menu(window: &pancurses::Window, config: Config){
     let mut selection: usize = config.default_selection;
     let max_selection = config.selection_max; //Temporal, it will be stated by the config in the future
+    #[cfg(feature = "sound")]
     let mut select_sound = Sound::new(&get_path(format!("/game/{}", config.selection_sound))).unwrap();
+
     render_menu(&window, config.clone(), selection);
     let mut stop = false;
     while !stop  {
@@ -229,12 +245,14 @@ fn menu(window: &pancurses::Window, config: Config){
             Some(Input::KeyDown)|Some(Input::KeyRight)|Some(Input::Character('s'))|Some(Input::Character('d')) => { 
                 if selection>0 {
                     selection-=1;
+                    #[cfg(feature = "sound")]
                     select_sound.play();
                 }
             },
             Some(Input::KeyUp)|Some(Input::KeyLeft)|Some(Input::Character('w'))|Some(Input::Character('a')) => { 
                 if selection<max_selection {
                     selection+=1;
+                    #[cfg(feature = "sound")]
                     select_sound.play();
                 }     
             },
@@ -259,7 +277,9 @@ fn menu(window: &pancurses::Window, config: Config){
     }
 }
 fn game_loop(world_file: World, window: &pancurses::Window, mut world:Vec<u32>, char_map: Vec<char>, mut collision_map:Vec<u8>, cus_coor: bool, cus_x: usize, cus_y: usize, actual_map: String, config: Config, vars: &mut Vec<i16>) {
+    #[cfg(feature = "sound")]
     let mut interact_sound = Sound::new(&get_path(format!("/game/{}", config.interact_sound))).unwrap();
+    
     let mut message: String = "".to_string();
     let mut x;
     let mut y;
@@ -336,7 +356,9 @@ fn game_loop(world_file: World, window: &pancurses::Window, mut world:Vec<u32>, 
                 break
             },
             Some(Input::Character('k'))|Some(Input::Character('z')) => {
+                #[cfg(feature = "sound")]
                 interact_sound.play();
+
                 let trigger_data = check_interactable_triggers(&window,&world_file,&mut world, &mut collision_map, x, y, facing, config.clone(), vars); //Read for interact triggers
                 if trigger_data.0==1 { break ; }
                         if trigger_data.1 != "" {
