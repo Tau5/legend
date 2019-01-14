@@ -452,9 +452,12 @@ fn run_event(name: String, window: &pancurses::Window, world: &World, world_map:
                 }
                 if c.0 == "if" {
                     if vars.len() <= c.2 as usize {
-                        break;
-                    } else 
-                    if vars[c.2 as usize] == c.3 as i16 {
+                        if c.3 as i16 == 0 {
+                            continue;
+                        } else {
+                            break;
+                        }
+                    } else if vars[c.2 as usize] == c.3 as i16 {
                         continue;
                     } else {
                         break;
