@@ -32,7 +32,8 @@ struct Config {
     interact_sound: String,
     ui: Vec<UIitem>,
     selection_max: usize,
-    default_selection: usize
+    default_selection: usize,
+    color_mode: Option<u8>
 }
 
 
@@ -53,7 +54,9 @@ struct World {
     char_map: Vec<char>,
     spawn: [usize; 2],
     events: Vec<(String, Vec<(String, String, u32, u32, u32, u32, u32)>)>,
-    triggers: Vec<(usize, usize, String, usize, usize, usize, usize, usize)>
+    triggers: Vec<(usize, usize, String, usize, usize, usize, usize, usize)>,
+    #[cfg(feature = "color")]
+    char_colors: Vec<u8>
 }
 use std::path::Path;
 use pancurses::{initscr, endwin, Input, noecho};
@@ -136,6 +139,41 @@ fn start() {
         let window = initscr();
         window.refresh();
         window.keypad(true);
+
+        #[cfg(feature = "color")]{
+            pancurses::start_color();
+            pancurses::use_default_colors();
+            let mut colors = 8;
+            
+            match config.color_mode {
+                Some(8)|Some(_)|None => colors = 8,
+                Some(16) => colors = 16,
+                Some(0) => colors = pancurses::COLORS(),
+
+            }
+            let mut i = 0;
+            for b in 0..colors {
+                window.printw("\n");
+                for f in 0..colors {
+                    
+                    pancurses::init_pair( ( i ) as i16, (f) as i16, (b) as i16);
+                    #[cfg(feature = "color_test")] {
+                        window.attron(pancurses::ColorPair((i) as u8));
+                        window.printw(format!(" ({:?}) ", i));
+                        window.attroff(pancurses::ColorPair((i) as u8));
+                    }
+                    i+=1;
+                }
+                
+            }
+            #[cfg(feature = "color_test")] {
+                window.getch();
+                window.clear();
+            }
+            
+        }
+        
+        
         noecho();
         pancurses::curs_set(0);
         menu(&window, config.clone());
@@ -302,7 +340,7 @@ fn game_loop(world_file: World, window: &pancurses::Window, mut world:Vec<u32>, 
             message = trigger_data.1;
     }
     
-    render(&window, &world, get_line_count(&world), x, y, &char_map, '*', message.clone()); //Render the map
+    render(&window, &world, get_line_count(&world), x, y, &char_map, '*', message.clone(), world_file.clone()); //Render the map
     loop {
         match window.getch() {
             Some(Input::KeyLeft)|Some(Input::Character('a')) => { 
@@ -359,7 +397,7 @@ fn game_loop(world_file: World, window: &pancurses::Window, mut world:Vec<u32>, 
                 #[cfg(feature = "sound")]
                 interact_sound.play();
 
-                let trigger_data = check_interactable_triggers(&window,&world_file,&mut world, &mut collision_map, x, y, facing, config.clone(), vars); //Read for interact triggers
+                let trigger_data = check_interactable_triggers(&window, &world_file ,&mut world, &mut collision_map, x, y, facing, config.clone(), vars); //Read for interact triggers
                 if trigger_data.0==1 { break ; }
                         if trigger_data.1 != "" {
                             message = trigger_data.1;
@@ -393,21 +431,21 @@ fn game_loop(world_file: World, window: &pancurses::Window, mut world:Vec<u32>, 
             None => {continue}
         }
         window.clear();
-        let trigger_data = check_triggers(&window,&world_file,&mut world, &mut collision_map, x, y, config.clone(), vars); //Read for triggers
+        let trigger_data = check_triggers(&window, &world_file.clone() ,&mut world, &mut collision_map, x, y, config.clone(), vars); //Read for triggers
         if trigger_data.0==1 { break ; }
         if trigger_data.1 != "" {
             message = trigger_data.1;
         }
         
-        render(&window, &world, get_line_count(&world), x, y, &char_map, '*', message.clone());
+        render(&window, &world, get_line_count(&world), x, y, &char_map, '*', message.clone(), world_file.clone());
         
     }
     
 }
 pub fn main() {
-    
     start();
     endwin();
+    println!("{:?}", pancurses::COLORS());
 }
 fn run_event(name: String, window: &pancurses::Window, world: &World, world_map: &mut Vec<u32>, collision_map: &mut Vec<u8>, _x:usize, _y:usize, config: Config, vars: &mut Vec<i16>) -> (u8, String) { //Executes a specific event
     let mut return_code = 0;
@@ -595,15 +633,28 @@ fn get_loc_coll(world: Vec<u8>, x: u32, y:u32)-> usize{ //Get the index
     }
     index
 }
- fn render(window: &pancurses::Window,world: &Vec<u32>, line_number: u32, x:usize, y:usize, char_map: &Vec<char>, character_char: char, message: String) { //Render the map
+ fn render(window: &pancurses::Window,world: &Vec<u32>, line_number: u32, x:usize, y:usize, char_map: &Vec<char>, character_char: char, message: String, world_file: World) { //Render the map
      window.clear();
      for i in 0..line_number {
          let line = get_line(world.to_vec(), i);
         for n in 0..line.len() {
             if i==y as u32&&n==x as usize{
+                #[cfg(feature = "color")]
+                window.attron(pancurses::ColorPair(world_file.char_colors[line[n] as usize] ));
                 window.addch(character_char);
+                #[cfg(feature = "color")]
+                window.attroff(pancurses::ColorPair( world_file.char_colors[line[n] as usize] ));
             } else {
-                window.addch(char_map[line[n] as usize]);
+                
+                if cfg!(feature = "color") {
+                    #[cfg(feature = "color")]
+                    window.attron(pancurses::ColorPair(world_file.char_colors[line[n] as usize]));
+                    window.addch(char_map[line[n] as usize]);
+                    #[cfg(feature = "color")]
+                    window.attroff(pancurses::ColorPair(world_file.char_colors[line[n] as usize]));
+                } else {
+                    window.addch(char_map[line[n] as usize]);
+                }
             }
             
          }
@@ -611,4 +662,4 @@ fn get_loc_coll(world: Vec<u8>, x: u32, y:u32)-> usize{ //Get the index
      }
         window.printw("\n\n");
         window.printw(message);
-     }
+}

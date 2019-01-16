@@ -17,3 +17,5 @@ features = ["show_menu", "disable_resize"]
 [features]
 
 sound = ["ears"] # Allow sound
+color = []
+color_test = []
