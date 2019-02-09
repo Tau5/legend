@@ -6,8 +6,8 @@ use tools;
 use std::io::prelude::*;
 use std::fs::File;
 use std::path::Path;
-
-pub fn run_event(name: String, window: &pancurses::Window, world: &World, world_map: &mut Vec<u32>, collision_map: &mut Vec<u8>, _x:usize, _y:usize, config: files::config::Config, vars: &mut Vec<i16>) -> (u8, String) { //Executes a specific event
+use gameplay::renderization::render;
+pub fn run_event(name: String, window: &pancurses::Window, world: &World, world_map: &mut Vec<u32>, collision_map: &mut Vec<u8>, x:usize, y:usize, config: files::config::Config, vars: &mut Vec<i16>) -> (u8, String) { //Executes a specific event
     let mut return_code = 0;
     let mut message: String = "".to_string();
     /*
@@ -42,6 +42,7 @@ pub fn run_event(name: String, window: &pancurses::Window, world: &World, world_
                 }
                 if c.0 == "msg" {
                     return_code = 0;
+                    render(&window, &world.clone().world, tools::get_line_count(&world.clone().world), x, y, &world.clone().char_map, '*', c.clone().1, world.clone());
                     message = c.clone().1; 
                 }
                 if c.0 == "set" {
@@ -75,6 +76,9 @@ pub fn run_event(name: String, window: &pancurses::Window, world: &World, world_
                  window.printw(content);
                  window.printw("\nPress any key to continue");
                  window.getch();
+                }
+                if c.0 == "wait" {
+                    window.getch();
                 }
             }
         }

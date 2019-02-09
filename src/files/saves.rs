@@ -1,6 +1,5 @@
 use std::io::prelude::*;
 use std::fs::File;
-use std::io;
 use std::path::Path;
 use files::config;
     #[derive(Serialize, Deserialize, Clone)]
