@@ -19,3 +19,10 @@ features = ["show_menu", "disable_resize"]
 sound = ["ears"] # Allow sound
 color = []
 color_test = []
+
+[dependencies.clap]
+version = "2.32"
+default-features = false
+
+# Cherry-pick the features you'd like to use
+features = ["suggestions", "vec_map"]

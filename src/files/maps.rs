@@ -16,7 +16,7 @@ pub struct World {
 }
 
 pub fn read_worldmap(filename: String) -> World { //Get a World structure from a map file
-    let mut file = File::open(Path::new(&path::get_path(format!("{}{}", "/game/", filename).to_string()))).unwrap();
+    let mut file = File::open(Path::new(&path::get_path(format!("{}", filename).to_string()))).unwrap();
     let mut content = String::new();
     file.read_to_string(&mut content).expect("Could not find game world file");
     let world_file: World = serde_json::from_str(&content).unwrap();

@@ -16,38 +16,13 @@ pub mod events;
 pub mod gameplay;
 use gameplay::game_loop;
 
-#[derive(Serialize, Deserialize, Clone)]
-struct UIitem {
-    label: String,
-    x: i32,
-    y: i32,
-    item_type: usize,
-    start_from_bottom: bool,
-    start_from_left: bool,
-    selection_id: usize
-}
-
-
-#[derive(Serialize, Deserialize, Clone)]
-struct Save {
-    map: String,
-    x: usize,
-    y: usize,
-    world: Vec<u32>,
-    collision_map: Vec<u8>,
-    vars: Vec<i16>
-}
-
 use std::path::Path;
 use pancurses::{initscr, endwin, noecho};
 
 fn start() {
     //Read game manifest and load initial_map
     
-    let mut file = File::open(Path::new(&files::path::get_path("/game/game.json".to_string()))).unwrap();
-    let mut content = String::new();
-    file.read_to_string(&mut content).expect("Could not find game config file");
-    let config: files::config::Config = serde_json::from_str(&content).unwrap();
+    let config = files::config::get_config();
         //Start curses mode
         let window = initscr();
         window.refresh();

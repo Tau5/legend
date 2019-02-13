@@ -11,7 +11,7 @@ pub fn new_game(window: &pancurses::Window, config: Config){
     let mut file;
     let mut content = String::new();
     
-    file = File::open(Path::new(&files::path::get_path(format!("{}{}", "/game/", config.initial_map).to_string()))).unwrap();
+    file = File::open(Path::new(&files::path::get_path(format!("{}", config.initial_map).to_string()))).unwrap();
     file.read_to_string(&mut content).expect("Could not find game world file");
     let world_file: World = serde_json::from_str(&content).unwrap();
     let world = world_file.world.clone();
@@ -26,7 +26,7 @@ pub fn continue_game(window: &pancurses::Window, config: Config){
     let mut file;
     let mut content = String::new();
     
-    file = File::open(Path::new(&files::path::get_path(format!("{}{}", "/game/", save.clone().map).to_string()))).unwrap();
+    file = File::open(Path::new(&files::path::get_path(format!("{}", save.clone().map).to_string()))).unwrap();
     file.read_to_string(&mut content).expect("Could not find game world file");
     let world_file: World = serde_json::from_str(&content).unwrap();
     let char_map = world_file.char_map.clone();

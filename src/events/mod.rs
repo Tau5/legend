@@ -69,7 +69,7 @@ pub fn run_event(name: String, window: &pancurses::Window, world: &World, world_
                 }
                 if c.0 == "movie" {
                  let mut content = String::new();
-                 let mut file = File::open(Path::new(&files::path::get_path(format!("{}{}", "/game/", c.1).to_string()))).unwrap();
+                 let mut file = File::open(Path::new(&files::path::get_path(format!("{}", c.1).to_string()))).unwrap();
                  file.read_to_string(&mut content).expect("Could not find movie file");
                  window.clear();
                  window.mv(0,0);

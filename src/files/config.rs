@@ -30,7 +30,7 @@ use files::path;
         pub color_mode: Option<u8>
     }
     pub fn get_config() -> Config {
-        let mut file = File::open(Path::new(&path::get_path("/game/game.json".to_string()))).unwrap();
+        let mut file = File::open(Path::new(&path::get_path("/game.json".to_string()))).unwrap();
         let mut content = String::new();
         file.read_to_string(&mut content).expect("Could not find game config file");
         let config: Config = serde_json::from_str(&content).unwrap();

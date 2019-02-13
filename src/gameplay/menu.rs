@@ -13,7 +13,7 @@ pub fn menu(window: &pancurses::Window, config: Config){
     let mut selection: usize = config.default_selection;
     let max_selection = config.selection_max; //Temporal, it will be stated by the config in the future
     #[cfg(feature = "sound")]
-    let mut select_sound = Sound::new(&files::path::get_path(format!("/game/{}", config.selection_sound))).unwrap();
+    let mut select_sound = Sound::new(&files::path::get_path(format!("{}", config.selection_sound))).unwrap();
 
     render_menu(&window, config.clone(), selection);
     let mut stop = false;

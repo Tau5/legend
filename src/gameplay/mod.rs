@@ -18,7 +18,7 @@ pub mod saves;
 
 pub fn game_loop(world_file: World, window: &pancurses::Window, mut world:Vec<u32>, char_map: Vec<char>, mut collision_map:Vec<u8>, cus_coor: bool, cus_x: usize, cus_y: usize, actual_map: String, config: Config, vars: &mut Vec<i16>) {
     #[cfg(feature = "sound")]
-    let mut interact_sound = Sound::new(&files::path::get_path(format!("/game/{}", config.interact_sound))).unwrap();
+    let mut interact_sound = Sound::new(&files::path::get_path(format!("{}", config.interact_sound))).unwrap();
     let mut message: String = "".to_string();
     let mut x;
     let mut y;
