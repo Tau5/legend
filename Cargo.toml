@@ -19,6 +19,7 @@ features = ["show_menu", "disable_resize"]
 sound = ["ears"] # Allow sound
 color = []
 color_test = []
+benchmark = []
 
 [dependencies.clap]
 version = "2.32"

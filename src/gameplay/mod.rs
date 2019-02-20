@@ -17,6 +17,9 @@ pub mod menu;
 pub mod saves;
 
 pub fn game_loop(world_file: World, window: &pancurses::Window, mut world:Vec<u32>, char_map: Vec<char>, mut collision_map:Vec<u8>, cus_coor: bool, cus_x: usize, cus_y: usize, actual_map: String, config: Config, vars: &mut Vec<i16>) {
+    #[cfg(feature = "benchmark")]
+    let time_before = std::time::Instant::now();
+
     #[cfg(feature = "sound")]
     let mut interact_sound = Sound::new(&files::path::get_path(format!("{}", config.interact_sound))).unwrap();
     let mut message: String = "".to_string();
@@ -40,8 +43,17 @@ pub fn game_loop(world_file: World, window: &pancurses::Window, mut world:Vec<u3
     if trigger_data.1 != "" {
             message = trigger_data.clone().1;
     }
-    
     renderization::render(&window, &world, tools::get_line_count(&world), x, y, &char_map, '*', message.clone(), world_file.clone()); //Render the map
+    
+    #[cfg(feature = "benchmark")]
+    let time_after = std::time::Instant::now();
+    #[cfg(feature = "benchmark")] {
+        window.mv(window.get_max_y()-1, 0);
+        window.printw(format!("{} ms", time_after.duration_since(time_before).subsec_millis()));
+    }
+    
+    
+
     loop {
         match window.getch() {
             Some(Input::KeyLeft)|Some(Input::Character('a')) => { 
@@ -131,6 +143,10 @@ pub fn game_loop(world_file: World, window: &pancurses::Window, mut world:Vec<u3
             Some(_input) => {continue},
             None => {continue}
         }
+
+        #[cfg(feature = "benchmark")]
+        let time_before = std::time::Instant::now();
+
         window.clear();
         let trigger_data = triggers::check_triggers(&window, &world_file.clone() ,&mut world, &mut collision_map, x, y, config.clone(), vars); //Read for triggers
         if trigger_data.0==1 { break ; }
@@ -139,6 +155,11 @@ pub fn game_loop(world_file: World, window: &pancurses::Window, mut world:Vec<u3
         }
         
         renderization::render(&window, &world, tools::get_line_count(&world), x, y, &char_map, '*', message.clone(), world_file.clone());
+        #[cfg(feature = "benchmark")] {
+            let time_after = std::time::Instant::now();
+            window.mv(window.get_max_y()-1, 0);
+            window.printw(format!("{} ms", time_after.duration_since(time_before).subsec_millis()));
+        }
         
     }
     
