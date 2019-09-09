@@ -1,3 +1,8 @@
+# THIS PROYECT IS ABANDONED
+Legend was a proyect aimed to be as low resource dependant as possible, as it turns out, my knowledge in this area was lacking.
+The proyect turned out to be a very difficult to use game engine, I would say that it could be considered even a esoteric game engine.
+If you want to pick up the proyect and fix its problems, you are free to do it. But I don't recommend it.
+
 # Legend Engine
 The legend engine is a 2D text based game engine written in Rust
 
